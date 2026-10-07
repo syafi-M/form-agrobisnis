@@ -31,8 +31,12 @@ $message = $data['already_scanned'] ? 'Peserta ini sudah melakukan check-in sebe
 body{margin:0;padding:40px 20px;background:#f5f3ed;color:#28291f;font:16px Arial;text-align:center}
 main{max-width:420px;margin:auto;padding:28px;background:#fffefa;border:1px solid #e7e5da;border-radius:12px}
 h1{color:#404735;font-size:28px}p{margin:12px 0}strong{color:#404735}
+.warning{border:3px solid #b42318;background:#fff1f0}
+.warning h1,.warning strong{color:#b42318}
+.badge{display:inline-block;padding:8px 14px;border-radius:999px;background:#b42318;color:#fff;font-weight:700}
 </style>
-<main>
+<main class="<?= $data['already_scanned'] ? 'warning' : '' ?>">
+  <?php if ($data['already_scanned']): ?><div class="badge">PERINGATAN</div><?php endif; ?>
   <h1><?= $data['already_scanned'] ? '⚠' : '✓' ?> <?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
   <p><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></p>
   <p><strong><?= htmlspecialchars($data['nama'], ENT_QUOTES, 'UTF-8') ?></strong></p>

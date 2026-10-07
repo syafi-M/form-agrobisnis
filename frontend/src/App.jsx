@@ -11,12 +11,27 @@ export default function App() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [countdown, setCountdown] = useState("");
+  const [eventState, setEventState] = useState("upcoming");
   const [customKilo, setCustomKilo] = useState("");
 
   useEffect(() => {
-    const target = new Date("2026-10-22T00:00:00+07:00");
+    const start = new Date("2026-10-22T00:00:00+07:00");
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
     const update = () => {
-      const remaining = Math.max(0, target - new Date());
+      const now = new Date();
+      if (now >= start && now < end) {
+        setEventState("ongoing");
+        setCountdown("Acara sedang berlangsung");
+        return;
+      }
+      if (now >= end) {
+        setEventState("ended");
+        setCountdown("Acara telah selesai");
+        return;
+      }
+      setEventState("upcoming");
+      const remaining = start - now;
       const days = Math.floor(remaining / 86400000);
       const hours = Math.floor((remaining / 3600000) % 24);
       const minutes = Math.floor((remaining / 60000) % 60);
@@ -80,8 +95,9 @@ export default function App() {
           {result ? "Simpan QR ini sebagai bukti registrasi." : "Siapkan kunjungan terbaik Anda."}
         </p>
 
-        {!result && <div className="countdown" aria-label="Hitung mundur acara">
-          <span>Menuju acara</span><strong>{countdown}</strong>
+        {!result && <div className={`countdown ${eventState}`} aria-label="Status acara">
+          <span>{eventState === "upcoming" ? "Menuju acara" : "Status acara"}</span>
+          <strong>{countdown}</strong>
         </div>}
       </header>
 
