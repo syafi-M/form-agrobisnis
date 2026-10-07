@@ -63,19 +63,28 @@ function checkin_xlsx(string $path, string $id): ?array
         if ($sheet === false) throw new RuntimeException('Workbook invalid');
 
         $found = null;
-        $sheet = preg_replace_callback('/<row r="(\\d+)">(.*?)<\\/row>/s', function ($match) use ($id, &$found) {
+        $alreadyScanned = false;
+        $sheet = preg_replace_callback('/<row r="(\\d+)">(.*?)<\\/row>/s', function ($match) use ($id, &$found, &$alreadyScanned) {
             preg_match_all('/<c r="([A-Z]+)\\d+"[^>]*>.*?<t[^>]*>(.*?)<\\/t>.*?<\\/c>/s', $match[2], $cells, PREG_SET_ORDER);
-            $values = array_map(fn($cell) => html_entity_decode($cell[2], ENT_XML1 | ENT_QUOTES, 'UTF-8'), $cells);
-            if (($values[0] ?? '') !== $id) return $match[0];
-            $found = $values;
-            $checkin = $values[7] ?? '';
-            if ($checkin !== '') return $match[0];
-            $time = gmdate('c');
+            $values = [];
+            foreach ($cells as $cell) {
+                $values[$cell[1]] = html_entity_decode($cell[2], ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            }
+            if (($values['A'] ?? '') !== $id) return $match[0];
+
+            $found = array_values(array_replace(array_fill(0, 9, ''), [
+                0 => $values['A'] ?? '', 1 => $values['B'] ?? '', 2 => $values['C'] ?? '',
+                3 => $values['D'] ?? '', 4 => $values['E'] ?? '', 5 => $values['F'] ?? '',
+                6 => $values['G'] ?? '', 7 => $values['H'] ?? '', 8 => $values['I'] ?? '',
+            ]));
+            if ($found[7] !== '') {
+                $alreadyScanned = true;
+                return $match[0];
+            }
+
             $found[7] = 'sukses';
-            $found[8] = $time;
-            $row = $match[2];
-            $row = preg_replace('/<\\/row>$/', sheet_cells(array_slice($found, 7), (int)$match[1], 8) . '</row>', $row);
-            return '<row r="' . $match[1] . '">' . $row . '</row>';
+            $found[8] = gmdate('c');
+            return '<row r="' . $match[1] . '">' . sheet_cells($found, (int)$match[1], 1) . '</row>';
         }, $sheet);
         if ($found === null) return null;
         if (($found[7] ?? '') !== 'sukses') {
@@ -86,7 +95,7 @@ function checkin_xlsx(string $path, string $id): ?array
         $zip->deleteName('xl/worksheets/sheet1.xml');
         $zip->addFromString('xl/worksheets/sheet1.xml', $sheet);
         if (!$zip->close()) throw new RuntimeException('Workbook save failed');
-        return ['id' => $found[0], 'nama' => $found[1], 'whatsapp' => $found[2], 'kehadiran' => $found[3], 'tanggal' => $found[4], 'kilo' => preg_replace('/\\s*kg$/', '', $found[5]), 'status' => $found[7], 'checkin_at' => $found[8]];
+        return ['id' => $found[0], 'nama' => $found[1], 'whatsapp' => $found[2], 'kehadiran' => $found[3], 'tanggal' => $found[4], 'kilo' => preg_replace('/\\s*kg$/', '', $found[5]), 'status' => $found[7], 'checkin_at' => $found[8], 'already_scanned' => $alreadyScanned];
     } finally {
         flock($lock, LOCK_UN);
         fclose($lock);
