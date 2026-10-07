@@ -37,7 +37,7 @@ $created = gmdate('c');
 $dir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data';
 if (!is_dir($dir) && !mkdir($dir, 0750, true) && !is_dir($dir)) json_response(500, ['ok' => false, 'error' => 'Data gagal disimpan.']);
 try {
-    append_xlsx($dir . DIRECTORY_SEPARATOR . 'registrations.xlsx', [$id, $nama, $whatsapp, $kehadiran, $tanggal, $kilo . ' kg', $created]);
+    append_xlsx($dir . DIRECTORY_SEPARATOR . 'registrations.xlsx', [$id, $nama, $whatsapp, $kehadiran, $tanggal, $kilo . ' kg', $created, '', '']);
 } catch (Throwable) {
     json_response(500, ['ok' => false, 'error' => 'Data gagal disimpan.']);
 }

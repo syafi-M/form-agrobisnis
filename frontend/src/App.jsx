@@ -44,7 +44,8 @@ export default function App() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Data gagal disimpan.");
       setResult(body.data);
-      setQr(await QRCode.toDataURL(body.data.id, { width: 256, margin: 2 }));
+      const verifyUrl = `${window.location.origin}${base}/verify.php?id=${encodeURIComponent(body.data.id)}`;
+      setQr(await QRCode.toDataURL(verifyUrl, { width: 600, margin: 4, errorCorrectionLevel: "H" }));
     } catch (err) {
       setError(err.message || "Tidak dapat menghubungi server.");
     } finally {
@@ -86,21 +87,44 @@ export default function App() {
 
       {result ? (
         <section className="result" aria-live="polite">
+          <div className="print-ticket-head">
+            <div className="print-title">Voucher Petik Buah 10% <br /> SAC AGRO FARM</div>
+          </div>
+
           <div className="success-badge">✓ Registrasi berhasil</div>
 
           <img className="qr" src={qr} alt={`QR registrasi ${result.id}`} />
 
-          <h2>{result.nama}</h2>
+          <div className="result-details">
+            <div className="result-name">
+              <span>Nama peserta</span>
+              <h2>{result.nama}</h2>
+            </div>
 
-          <p className="phone">{result.whatsapp}</p>
+            <div className="result-grid">
+              <div className="result-item">
+                <span>No. WhatsApp</span>
+                <strong>{result.whatsapp}</strong>
+              </div>
 
-          <p className="attendance">
-            {result.kehadiran === "hadir" ? "✓ Hadir" : "Tidak hadir"} · {result.tanggal}
-          </p>
+              <div className="result-item">
+                <span>Tanggal kunjungan</span>
+                <strong>{result.tanggal}</strong>
+              </div>
 
-          <p className="attendance">Buah yang diambil · {result.kilo} kg</p>
+              <div className="result-item">
+                <span>Status kehadiran</span>
+                <strong>{result.kehadiran === "hadir" ? "✓ Hadir" : "Tidak hadir"}</strong>
+              </div>
 
-          <p className="id">ID · {result.id}</p>
+              <div className="result-item">
+                <span>Buah yang diambil</span>
+                <strong>{result.kilo} kg</strong>
+              </div>
+            </div>
+
+            <p className="id">ID registrasi · {result.id}</p>
+          </div>
 
           <div className="actions">
             <button className="primary" onClick={() => window.print()}>

@@ -51,6 +51,58 @@ function sheet_row(array $values, int $row): string
     return '<row r="' . $row . '">' . $cells . '</row>';
 }
 
+function checkin_xlsx(string $path, string $id): ?array
+{
+    $lock = fopen($path . '.lock', 'c');
+    if (!$lock || !flock($lock, LOCK_EX)) throw new RuntimeException('Storage unavailable');
+    try {
+        $zip = new ZipArchive();
+        if ($zip->open($path) !== true) throw new RuntimeException('Workbook unavailable');
+        $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+        if ($sheet === false) throw new RuntimeException('Workbook invalid');
+
+        $found = null;
+        $sheet = preg_replace_callback('/<row r="(\\d+)">(.*?)<\\/row>/s', function ($match) use ($id, &$found) {
+            preg_match_all('/<c r="([A-Z]+)\\d+"[^>]*>.*?<t[^>]*>(.*?)<\\/t>.*?<\\/c>/s', $match[2], $cells, PREG_SET_ORDER);
+            $values = array_map(fn($cell) => html_entity_decode($cell[2], ENT_XML1 | ENT_QUOTES, 'UTF-8'), $cells);
+            if (($values[0] ?? '') !== $id) return $match[0];
+            $found = $values;
+            $checkin = $values[7] ?? '';
+            if ($checkin !== '') return $match[0];
+            $time = gmdate('c');
+            $found[7] = 'sukses';
+            $found[8] = $time;
+            $row = $match[2];
+            $row = preg_replace('/<\\/row>$/', sheet_cells(array_slice($found, 7), (int)$match[1], 8) . '</row>', $row);
+            return '<row r="' . $match[1] . '">' . $row . '</row>';
+        }, $sheet);
+        if ($found === null) return null;
+        if (($found[7] ?? '') !== 'sukses') {
+            $found[7] = 'sukses';
+            $found[8] = gmdate('c');
+        }
+        $zip->open($path);
+        $zip->deleteName('xl/worksheets/sheet1.xml');
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheet);
+        if (!$zip->close()) throw new RuntimeException('Workbook save failed');
+        return ['id' => $found[0], 'nama' => $found[1], 'whatsapp' => $found[2], 'kehadiran' => $found[3], 'tanggal' => $found[4], 'kilo' => preg_replace('/\\s*kg$/', '', $found[5]), 'status' => $found[7], 'checkin_at' => $found[8]];
+    } finally {
+        flock($lock, LOCK_UN);
+        fclose($lock);
+    }
+}
+
+function sheet_cells(array $values, int $row, int $start): string
+{
+    $cells = '';
+    foreach ($values as $index => $value) {
+        $ref = column_name($start + $index) . $row;
+        $cells .= '<c r="' . $ref . '" t="inlineStr"><is><t xml:space="preserve">' . xml((string)$value) . '</t></is></c>';
+    }
+    return $cells;
+}
+
 function append_xlsx(string $path, array $values): void
 {
     $lock = fopen($path . '.lock', 'c');
@@ -81,7 +133,7 @@ function append_xlsx(string $path, array $values): void
             $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
             $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Registrasi" sheetId="1" r:id="rId1"/></sheets></workbook>');
             $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>');
-            $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' . sheet_row(['ID', 'Nama', 'No Whatsapp', 'Kehadiran', 'Tanggal Hadir', 'Jumlah Buah', 'Dibuat Pada'], 1) . sheet_row($values, 2) . '</sheetData></worksheet>');
+            $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' . sheet_row(['ID', 'Nama', 'No Whatsapp', 'Kehadiran', 'Tanggal Hadir', 'Jumlah Buah', 'Dibuat Pada', 'Status Check-in', 'Waktu Check-in'], 1) . sheet_row($values, 2) . '</sheetData></worksheet>');
         }
         if ($zip->close() !== true) {
             throw new RuntimeException('Workbook save failed');
